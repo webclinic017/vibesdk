@@ -26,6 +26,7 @@ import {
 import { MonacoEditor } from '@/components/monaco-editor/monaco-editor';
 import { getFileType } from '@/utils/string';
 import { SmartPreviewIframe } from '@/routes/chat/components/smart-preview-iframe';
+import { ApiPreview } from '@/routes/chat/components/api-preview';
 import { Button } from '@/components/ui/button';
 import {
 	Card,
@@ -798,13 +799,17 @@ export default function AppView() {
 							<CardContent className="p-0">
 								<div className="border-t relative">
 									{appUrl ? (
-										<SmartPreviewIframe
-											ref={previewIframeRef}
-											src={appUrl}
-											className="w-full h-[600px] lg:h-[800px]"
-											title={`${app.title} Preview`}
-											devMode={false}
-										/>
+										app.stack?.language === 'python' ? (
+											<ApiPreview url={appUrl} />
+										) : (
+											<SmartPreviewIframe
+												ref={previewIframeRef}
+												src={appUrl}
+												className="w-full h-[600px] lg:h-[800px]"
+												title={`${app.title} Preview`}
+												devMode={false}
+											/>
+										)
 									) : (
 										<div className="relative w-full h-[400px] bg-gray-50 flex items-center justify-center">
 											{/* Frosted glass overlay */}

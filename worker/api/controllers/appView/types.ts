@@ -20,6 +20,10 @@ export interface GeneratedCodeFile {
  * Adds only fields unique to app view response, uses EnhancedAppData stats directly
  */
 export interface AppDetailsData extends EnhancedAppData {
+    stack?: {
+        language: 'typescript' | 'python';
+        framework: 'react' | 'fastapi';
+    };
     cloudflareUrl: string | null;
     previewUrl: string | null;
     user: {

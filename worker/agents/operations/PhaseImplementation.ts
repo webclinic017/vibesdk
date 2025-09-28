@@ -129,6 +129,12 @@ These are the instructions and quality standards that must be followed to implem
     - Adhere to PEP 8 standards. Ensure code is formatted with a tool like \`ruff\` or \`black\`.
 - **Modularity:** Keep different concerns in separate files (e.g., \`main.py\`, \`models.py\`, \`routes/\`, \`services.py\`).
 - **Dependency Management:** All required packages MUST be listed in \`requirements.txt\`. Only use packages from this file.
+- **Test-Driven Development (TDD) with Pytest:**
+    - For every new feature, endpoint, or service function you implement, you MUST also write corresponding tests.
+    - Create test files within a `tests/` directory (e.g., `tests/test_routes.py`, `tests/test_services.py`).
+    - Use `pytest` for testing. For FastAPI endpoints, use the `TestClient` to make requests and assert responses.
+    - Write tests that cover success cases (200/201 status codes), error cases (404, 422, etc.), and edge cases.
+    - Use `pytest` fixtures to set up necessary resources, like a test database session or a `TestClient` instance.
 
 **CRITICAL IMPLEMENTATION RULES:**
 - You are not permitted to interfere with or overwrite any core config files.

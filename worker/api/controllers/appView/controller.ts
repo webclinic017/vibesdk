@@ -53,11 +53,13 @@ export class AppViewController extends BaseController {
             // Try to fetch current agent state to get latest generated code
             let agentSummary: AgentSummary | null = null;
             let previewUrl: string = '';
+            let stack: AppDetailsData['stack'] | undefined;
             
             try {
                 const agentStub = await getAgentStub(env, appResult.id, true, this.logger);
+                const agentState = await agentStub.getFullState();
                 agentSummary = await agentStub.getSummary();
-
+                stack = agentState.stack;
                 previewUrl = await agentStub.getPreviewUrlCache();
             } catch (agentError) {
                 // If agent doesn't exist or error occurred, fall back to database stored files
@@ -68,6 +70,7 @@ export class AppViewController extends BaseController {
 
             const responseData: AppDetailsData = {
                 ...appResult, // Spread all EnhancedAppData fields including stats
+                stack,
                 cloudflareUrl: cloudflareUrl,
                 previewUrl: previewUrl || cloudflareUrl,
                 user: {

@@ -633,6 +633,25 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
             
             // Implement the phase
             await this.implementPhase(phaseConcept, currentIssues);
+
+            // Run tests if it's a Python project
+            if (this.state.stack?.language === 'python') {
+                this.logger().info("Python project detected, running tests...");
+                this.broadcast(WebSocketMessageResponses.COMMAND_EXECUTING, {
+                    message: "Running tests...",
+                    commands: ["pytest"]
+                });
+                const testResult = await this.getSandboxServiceClient().executeCommands(this.state.sandboxInstanceId!, ["pytest"]);
+                this.logger().info("Pytest execution finished.", { result: testResult });
+
+                // For now, just log the results. In the future, this will feed into a self-healing loop.
+                const testOutput = testResult.results[0];
+                this.broadcast(WebSocketMessageResponses.TERMINAL_OUTPUT, {
+                    output: `Pytest Output:\n${testOutput.output}\n${testOutput.error || ''}`,
+                    outputType: testOutput.success ? 'stdout' : 'stderr',
+                    timestamp: Date.now()
+                });
+            }
     
             this.logger().info(`Phase ${phaseConcept.name} completed, generating next phase`);
 
