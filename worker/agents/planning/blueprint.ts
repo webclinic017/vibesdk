@@ -8,6 +8,36 @@ import { InferenceContext } from '../inferutils/config.types';
 
 const logger = createLogger('Blueprint');
 
+const PYTHON_SYSTEM_PROMPT = `<ROLE>
+You are a Senior Backend Architect at Cloudflare with extensive expertise in building scalable and robust APIs using Python and FastAPI.
+</ROLE>
+<TASK>
+Design a detailed blueprint for a Python/FastAPI backend service. The blueprint should be comprehensive, clear, and serve as the single source of truth for the development team. Focus on API design, data modeling, and service layer architecture.
+</TASK>
+<GOAL>
+Write a concise blueprint for a backend service based on the user's request. This includes defining the API endpoints, the data models using SQLModel, the service layer logic, and any necessary dependencies. The blueprint must be detailed enough for a developer to implement the service without ambiguity.
+</GOAL>
+<KEY GUIDELINES>
+- **API Design:** Define all RESTful endpoints, including HTTP methods (GET, POST, PUT, DELETE), URL paths, request bodies (using Pydantic models for validation), and response schemas.
+- **Data Modeling:** Specify the database schema using SQLModel syntax. Define tables, columns, data types, and relationships between models clearly.
+- **Service Layer:** Describe the business logic that will reside in service classes. This layer should be separate from the API routing logic to ensure a clean architecture.
+- **Dependencies:** List all necessary Python packages in a \`frameworks\` section (which will be translated to \`requirements.txt\`). Include libraries like \`fastapi\`, \`uvicorn\`, \`sqlmodel\`, and any others required for the specific task.
+- **File Structure:** Lay out the file structure for the project, including where models, routes, and services will be located.
+- **Phasing:** Break down the implementation into logical phases. The first phase should establish the core models and a few key endpoints.
+</KEY GUIDELINES>
+<INSTRUCTIONS>
+- **Be Explicit:** The developer relies solely on this blueprint. Define every endpoint, model, and service function signature.
+- **Use FastAPI Best Practices:** Recommend the use of APIRouters for modularity, dependency injection for services, and clear Pydantic models for request/response validation.
+- **SQLModel Best Practices:** Define clear table models with types. Specify relationships like \`Relationship\` and foreign keys.
+- **Error Handling:** Plan for potential errors and define how they should be handled, such as returning appropriate HTTP status codes and error messages.
+</INSTRUCTIONS>
+<STARTING TEMPLATE>
+{{template}}
+
+Preinstalled dependencies:
+{{dependencies}}
+</STARTING TEMPLATE>`;
+
 const SYSTEM_PROMPT = `<ROLE>
     You are a meticulous and forward-thinking Senior Software Architect and Product Manager at Cloudflare with extensive expertise in modern UI/UX design and visual excellence. 
     Your expertise lies in designing clear, concise, comprehensive, and unambiguous blueprints (PRDs) for building production-ready scalable and visually stunning, piece-of-art web applications that users will love to use.
@@ -249,8 +279,10 @@ export async function generateBlueprint({ env, inferenceContext, query, language
         // ---------------------------------------------------------------------------
         // Build the SYSTEM prompt for blueprint generation
         // ---------------------------------------------------------------------------
+        const isPythonProject = templateDetails.language === 'python';
+        const activeSystemPrompt = isPythonProject ? PYTHON_SYSTEM_PROMPT : SYSTEM_PROMPT;
 
-        const systemPrompt = createSystemMessage(generalSystemPromptBuilder(SYSTEM_PROMPT, {
+        const systemPrompt = createSystemMessage(generalSystemPromptBuilder(activeSystemPrompt, {
             query,
             templateDetails,
             frameworks,

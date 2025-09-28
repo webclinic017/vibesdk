@@ -294,6 +294,10 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
             ...this.initialState,
             query,
             blueprint,
+            stack: {
+                language: templateInfo.templateDetails.language as 'typescript' | 'python',
+                framework: templateInfo.templateDetails.frameworks[0] as 'react' | 'fastapi',
+            },
             templateDetails: templateInfo.templateDetails,
             sandboxInstanceId: undefined,
             generatedPhases: [],

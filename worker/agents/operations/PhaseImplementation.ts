@@ -94,6 +94,60 @@ ${STRATEGIES.FRONTEND_FIRST_CODING}
 
 {{template}}`;
 
+const PYTHON_USER_PROMPT = `**IMPLEMENT THE FOLLOWING BACKEND PHASE**
+<CURRENT_PHASE>
+{{phaseText}}
+</CURRENT_PHASE>
+
+<INSTRUCTIONS & CODE QUALITY STANDARDS>
+These are the instructions and quality standards that must be followed to implement this phase for a Python/FastAPI project.
+
+**CRITICAL ERROR PREVENTION (Fix These First):**
+1.  **Import Errors:** Ensure all modules (\`fastapi\`, \`sqlmodel\`, local files) are correctly imported. Check for circular dependencies.
+2.  **Typing Errors:** Use Pydantic and SQLModel for strict data typing on all models and function signatures. Use type hints everywhere.
+3.  **Async/Await Errors:** Correctly use \`async\` and \`await\` for all database operations and other I/O-bound tasks. Ensure endpoint functions are defined with \`async def\`.
+4.  **Database Errors:** Ensure database session management is correct. Use FastAPI's dependency injection (\`Depends\`) for sessions.
+
+**CODE QUALITY STANDARDS:**
+- **FastAPI Best Practices:**
+    - Use \`APIRouter\` to structure your endpoints into logical groups in separate files.
+    - Use dependency injection (\`Depends\`) for database sessions, services, and other dependencies.
+    - Use Pydantic models for request body validation and response serialization (\`response_model\`).
+    - Implement proper HTTP status codes for responses (e.g., 200, 201, 404).
+- **SQLModel Best Practices:**
+    - Define clear table models inheriting from \`SQLModel, table=True\`.
+    - Use type annotations for all model fields.
+    - Use \`Field\` for column configurations (e.g., \`default=None\`, \`primary_key=True\`).
+    - Define relationships between models using \`Relationship\` and foreign keys.
+- **Service Layer Architecture:**
+    - Abstract all business logic into separate service files/classes.
+    - API endpoint functions should be lightweight, delegating complex logic to the service layer.
+- **Error Handling:**
+    - Implement proper error handling using FastAPI's \`HTTPException\`.
+    - Do not expose raw database errors or stack traces to the client.
+- **Code Formatting & Linting:**
+    - Adhere to PEP 8 standards. Ensure code is formatted with a tool like \`ruff\` or \`black\`.
+- **Modularity:** Keep different concerns in separate files (e.g., \`main.py\`, \`models.py\`, \`routes/\`, \`services.py\`).
+- **Dependency Management:** All required packages MUST be listed in \`requirements.txt\`. Only use packages from this file.
+
+**CRITICAL IMPLEMENTATION RULES:**
+- You are not permitted to interfere with or overwrite any core config files.
+- You must write the entire content for every file using the \`full_content\` format. Do not use diffs.
+- Every phase must result in a deployable and functional application.
+- If it is the first phase, you must replace any boilerplate placeholder files with the actual application code.
+- Ensure the final code is FUNCTIONAL, ROBUST, and follows a clean architecture.
+
+Also understand the following:
+
+${PROMPT_UTILS.COMMON_PITFALLS}
+</INSTRUCTIONS & CODE QUALITY STANDARDS>
+
+Every single file listed in <CURRENT_PHASE> needs to be implemented in this phase, based on the provided <OUTPUT FORMAT>.
+
+{{issues}}
+
+{{technicalInstructions}}`;
+
 const USER_PROMPT = `**IMPLEMENT THE FOLLOWING PROJECT PHASE**
 <CURRENT_PHASE>
 {{phaseText}}
@@ -308,13 +362,14 @@ const specialPhasePromptOverrides: Record<string, string> = {
     "Finalization and Review": LAST_PHASE_PROMPT,
 }
 
-const userPropmtFormatter = (phaseConcept: PhaseConceptType, issues: IssueReport) => {
+const userPropmtFormatter = (phaseConcept: PhaseConceptType, issues: IssueReport, language?: string) => {
     const phaseText = TemplateRegistry.markdown.serialize(
         phaseConcept,
         PhaseConceptSchema
     );
     
-    const prompt = PROMPT_UTILS.replaceTemplateVariables(specialPhasePromptOverrides[phaseConcept.name] || USER_PROMPT, {
+    const activeUserPrompt = language === 'python' ? PYTHON_USER_PROMPT : USER_PROMPT;
+    const prompt = PROMPT_UTILS.replaceTemplateVariables(specialPhasePromptOverrides[phaseConcept.name] || activeUserPrompt, {
         phaseText,
         issues: issuesPromptFormatter(issues)
     });
@@ -335,7 +390,7 @@ export class PhaseImplementationOperation extends AgentOperation<PhaseImplementa
         const codeGenerationFormat = new SCOFFormat();
         // Build messages for generation
         const messages = getSystemPromptWithProjectContext(SYSTEM_PROMPT, context, true);
-        messages.push(createUserMessage(userPropmtFormatter(phase, issues) + codeGenerationFormat.formatInstructions()));
+        messages.push(createUserMessage(userPropmtFormatter(phase, issues, context.templateDetails?.language) + codeGenerationFormat.formatInstructions()));
     
         // Initialize streaming state
         const streamingState: CodeGenerationStreamingState = {

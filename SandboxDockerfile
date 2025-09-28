@@ -46,5 +46,16 @@ WORKDIR /app
 
 EXPOSE 3000
 
-# Run the same command as the original image
-CMD ["bun", "index.ts"]
+# MERGE: Add Python installation stage
+RUN apt-get update && \
+    apt-get install -y python3 python3-pip python3-venv && \
+    pip install ruff mypy uvicorn fastapi pydantic sqlmodel && \
+    rm -rf /var/lib/apt/lists/*
+
+# MERGE: Copy and set up the new smart startup script
+COPY container/smart-start.sh /usr/local/bin/smart-start.sh
+RUN chmod +x /usr/local/bin/smart-start.sh
+
+# REPLACE the existing CMD
+# CMD ["bun", "index.ts"]
+CMD ["/usr/local/bin/smart-start.sh"]

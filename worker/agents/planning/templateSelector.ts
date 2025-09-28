@@ -60,6 +60,13 @@ Selection: "react-social"
 complexity: "simple" // Because single page application
 Reasoning: "Social template provides user interactions, content sharing, and community features closest to recipe sharing needs"
 
+**Example 4 - Backend API Request:**
+User: "Build a REST API for a simple blog"
+Templates: ["react-dashboard", "fastapi-base", "vue-blog"]
+Selection: "fastapi-base"
+complexity: "simple"
+Reasoning: "FastAPI template provides the necessary structure for building a Python-based REST API."
+
 ## SELECTION CRITERIA:
 1. **Feature Alignment** - Templates with similar core functionality
 2. **Tech Stack Match** - Compatible frameworks and dependencies  

@@ -15,6 +15,8 @@ export const getFileType = (path: string): string => {
 			return 'html';
 		case 'json':
 			return 'json';
+		case 'py':
+			return 'python';
 		default:
 			return 'plaintext';
 	}

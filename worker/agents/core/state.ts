@@ -29,6 +29,10 @@ export enum CurrentDevState {
 export const MAX_PHASES = 10;
 
 export interface CodeGenState {
+    stack: {
+        language: 'typescript' | 'python';
+        framework: 'react' | 'fastapi';
+    };
     blueprint: Blueprint;
     query: string;
     generatedFilesMap: Record<string, FileState >;

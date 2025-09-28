@@ -1490,148 +1490,14 @@ export class SandboxSdkClient extends BaseSandboxService {
 
     async runStaticAnalysisCode(instanceId: string): Promise<StaticAnalysisResponse> {
         try {
-            const lintIssues: CodeIssue[] = [];
-            const typecheckIssues: CodeIssue[] = [];
-            
-            // Run ESLint and TypeScript check in parallel
-            const [lintResult, tscResult] = await Promise.allSettled([
-                this.executeCommand(instanceId, 'bun run lint'),
-                this.executeCommand(instanceId, 'bunx tsc -b --incremental --noEmit --pretty false')
-            ]);
+            const isPythonResult = await this.getSandbox().exec(`test -f ${instanceId}/requirements.txt && echo "exists" || echo "missing"`);
+            const isPython = isPythonResult.exitCode === 0 && isPythonResult.stdout.trim() === 'exists';
 
-            const results: StaticAnalysisResponse = {
-                success: true,
-                lint: {
-                    issues: [],
-                    summary: {
-                        errorCount: 0,
-                        warningCount: 0,
-                        infoCount: 0
-                    },
-                    rawOutput: ''
-                },
-                typecheck: {
-                    issues: [],
-                    summary: {
-                        errorCount: 0,
-                        warningCount: 0,
-                        infoCount: 0
-                    },
-                    rawOutput: ''
-                }
-            };
-            
-            // Process ESLint results
-            if (lintResult.status === 'fulfilled') {
-                try {
-                    const lintData = JSON.parse(lintResult.value.stdout) as Array<{
-                        filePath: string;
-                        messages: Array<{
-                            message: string;
-                            line?: number;
-                            column?: number;
-                            severity: number;
-                            ruleId?: string;
-                        }>;
-                    }>;
-                    
-                    for (const fileResult of lintData) {
-                        for (const message of fileResult.messages || []) {
-                            lintIssues.push({
-                                message: message.message,
-                                filePath: fileResult.filePath,
-                                line: message.line || 0,
-                                column: message.column,
-                                severity: this.mapESLintSeverity(message.severity),
-                                ruleId: message.ruleId,
-                                source: 'eslint'
-                            });
-                        }
-                    }
-                } catch (error) {
-                    this.logger.warn('Failed to parse ESLint output', error);
-                }
-
-                results.lint.issues = lintIssues;
-                results.lint.summary = {
-                    errorCount: lintIssues.filter(issue => issue.severity === 'error').length,
-                    warningCount: lintIssues.filter(issue => issue.severity === 'warning').length,
-                    infoCount: lintIssues.filter(issue => issue.severity === 'info').length
-                };
-                results.lint.rawOutput = `STDOUT: ${lintResult.value.stdout}\nSTDERR: ${lintResult.value.stderr}`;
-            } else if (lintResult.status === 'rejected') {
-                this.logger.warn('ESLint analysis failed', lintResult.reason);
+            if (isPython) {
+                return this.runPythonStaticAnalysis(instanceId);
+            } else {
+                return this.runTypeScriptStaticAnalysis(instanceId);
             }
-            
-            // Process TypeScript check results
-            if (tscResult.status === 'fulfilled') {
-                try {
-                    // TypeScript errors can come from either stdout or stderr
-                    const output = tscResult.value.stderr || tscResult.value.stdout;
-                    
-                    if (!output || output.trim() === '') {
-                        this.logger.info('No TypeScript output to parse');
-                    } else {
-                        this.logger.info(`Parsing TypeScript output: ${output.substring(0, 200)}...`);
-                        
-                        // Split by lines and parse each error
-                        const lines = output.split('\n');
-                        let currentError: any = null;
-                        
-                        for (const line of lines) {
-                            // Match TypeScript error format: path(line,col): error TSxxxx: message
-                            const match = line.match(/^(.+?)\((\d+),(\d+)\): error TS(\d+): (.*)$/);
-                            if (match) {
-                                // If we have a previous error being built, add it
-                                if (currentError) {
-                                    typecheckIssues.push(currentError);
-                                }
-                                
-                                // Start building new error
-                                currentError = {
-                                    message: match[5].trim(),
-                                    filePath: match[1].trim(),
-                                    line: parseInt(match[2]),
-                                    column: parseInt(match[3]),
-                                    severity: 'error' as const,
-                                    source: 'typescript',
-                                    ruleId: `TS${match[4]}`
-                                };
-                                
-                                this.logger.info(`Found TypeScript error: ${currentError.filePath}:${currentError.line} - ${currentError.ruleId}`);
-                            } else if (currentError && line.trim() && !line.startsWith('src/') && !line.includes(': error TS')) {
-                                // This might be a continuation of the error message
-                                currentError.message += ' ' + line.trim();
-                            }
-                        }
-                        
-                        // Add the last error if it exists
-                        if (currentError) {
-                            typecheckIssues.push(currentError);
-                        }
-                        
-                        this.logger.info(`Parsed ${typecheckIssues.length} TypeScript errors`);
-                    }
-                } catch (error) {
-                    this.logger.warn('Failed to parse TypeScript output', error);
-                }
-                
-                results.typecheck.issues = typecheckIssues;
-                results.typecheck.summary = {
-                    errorCount: typecheckIssues.filter(issue => issue.severity === 'error').length,
-                    warningCount: typecheckIssues.filter(issue => issue.severity === 'warning').length,
-                    infoCount: typecheckIssues.filter(issue => issue.severity === 'info').length
-                };
-                results.typecheck.rawOutput = `STDOUT: ${tscResult.value.stdout}\nSTDERR: ${tscResult.value.stderr}`;
-            } else if (tscResult.status === 'rejected') {
-                this.logger.warn('TypeScript analysis failed', tscResult.reason);
-            }
-
-            this.logger.info(`Analysis completed: ${lintIssues.length} lint issues, ${typecheckIssues.length} typecheck issues`);
-
-            return {
-                ...results
-            };
         } catch (error) {
             this.logger.error('runStaticAnalysisCode', error, { instanceId });
             return {
@@ -1641,6 +1507,175 @@ export class SandboxSdkClient extends BaseSandboxService {
                 error: `Failed to run analysis: ${error instanceof Error ? error.message : 'Unknown error'}`
             };
         }
+    }
+
+    private async runPythonStaticAnalysis(instanceId: string): Promise<StaticAnalysisResponse> {
+        const lintIssues: CodeIssue[] = [];
+        const typecheckIssues: CodeIssue[] = [];
+
+        // Run ruff and mypy in parallel
+        const [ruffResult, mypyResult] = await Promise.allSettled([
+            this.executeCommand(instanceId, 'ruff check . --output-format=json'),
+            this.executeCommand(instanceId, 'mypy . --ignore-missing-imports --disable-error-code=import-untyped --disable-error-code=import-not-found --line-by-line-json')
+        ]);
+
+        const results: StaticAnalysisResponse = {
+            success: true,
+            lint: { issues: [], summary: { errorCount: 0, warningCount: 0, infoCount: 0 }, rawOutput: '' },
+            typecheck: { issues: [], summary: { errorCount: 0, warningCount: 0, infoCount: 0 }, rawOutput: '' }
+        };
+
+        // Process ruff results
+        if (ruffResult.status === 'fulfilled') {
+            try {
+                const ruffData = JSON.parse(ruffResult.value.stdout) as Array<{
+                    code: string;
+                    message: string;
+                    location: { row: number; column: number; };
+                    filename: string;
+                }>;
+
+                for (const issue of ruffData) {
+                    lintIssues.push({
+                        message: issue.message,
+                        filePath: issue.filename,
+                        line: issue.location.row,
+                        column: issue.location.column,
+                        severity: issue.code.startsWith('E') || issue.code.startsWith('F') ? 'error' : 'warning',
+                        ruleId: issue.code,
+                        source: 'ruff'
+                    });
+                }
+            } catch (error) {
+                this.logger.warn('Failed to parse ruff output', { error, stdout: ruffResult.value.stdout });
+            }
+            results.lint.issues = lintIssues;
+            results.lint.summary = this.summarizeIssues(lintIssues);
+            results.lint.rawOutput = `STDOUT: ${ruffResult.value.stdout}\nSTDERR: ${ruffResult.value.stderr}`;
+        }
+
+        // Process mypy results
+        if (mypyResult.status === 'fulfilled') {
+            try {
+                const output = mypyResult.value.stdout.trim();
+                if (output) {
+                    const mypyIssues = output.split('\n').map(line => JSON.parse(line));
+                    for (const issue of mypyIssues) {
+                        typecheckIssues.push({
+                            message: issue.message,
+                            filePath: issue.path,
+                            line: issue.line,
+                            column: issue.column,
+                            severity: issue.severity as 'error' | 'warning' | 'info',
+                            ruleId: issue.error_code,
+                            source: 'mypy'
+                        });
+                    }
+                }
+            } catch (error) {
+                this.logger.warn('Failed to parse mypy output', { error, stdout: mypyResult.value.stdout });
+            }
+            results.typecheck.issues = typecheckIssues;
+            results.typecheck.summary = this.summarizeIssues(typecheckIssues);
+            results.typecheck.rawOutput = `STDOUT: ${mypyResult.value.stdout}\nSTDERR: ${mypyResult.value.stderr}`;
+        }
+
+        this.logger.info(`Python analysis completed: ${lintIssues.length} lint issues, ${typecheckIssues.length} typecheck issues`);
+        return results;
+    }
+
+    private async runTypeScriptStaticAnalysis(instanceId: string): Promise<StaticAnalysisResponse> {
+        const lintIssues: CodeIssue[] = [];
+        const typecheckIssues: CodeIssue[] = [];
+
+        const [lintResult, tscResult] = await Promise.allSettled([
+            this.executeCommand(instanceId, 'bun run lint'),
+            this.executeCommand(instanceId, 'bunx tsc -b --incremental --noEmit --pretty false')
+        ]);
+
+        const results: StaticAnalysisResponse = {
+            success: true,
+            lint: { issues: [], summary: { errorCount: 0, warningCount: 0, infoCount: 0 }, rawOutput: '' },
+            typecheck: { issues: [], summary: { errorCount: 0, warningCount: 0, infoCount: 0 }, rawOutput: '' }
+        };
+
+        if (lintResult.status === 'fulfilled') {
+            try {
+                const lintData = JSON.parse(lintResult.value.stdout) as Array<{
+                    filePath: string;
+                    messages: Array<{
+                        message: string;
+                        line?: number;
+                        column?: number;
+                        severity: number;
+                        ruleId?: string;
+                    }>;
+                }>;
+
+                for (const fileResult of lintData) {
+                    for (const message of fileResult.messages || []) {
+                        lintIssues.push({
+                            message: message.message,
+                            filePath: fileResult.filePath,
+                            line: message.line || 0,
+                            column: message.column,
+                            severity: this.mapESLintSeverity(message.severity),
+                            ruleId: message.ruleId,
+                            source: 'eslint'
+                        });
+                    }
+                }
+            } catch (error) {
+                this.logger.warn('Failed to parse ESLint output', error);
+            }
+            results.lint.issues = lintIssues;
+            results.lint.summary = this.summarizeIssues(lintIssues);
+            results.lint.rawOutput = `STDOUT: ${lintResult.value.stdout}\nSTDERR: ${lintResult.value.stderr}`;
+        }
+
+        if (tscResult.status === 'fulfilled') {
+            try {
+                const output = tscResult.value.stderr || tscResult.value.stdout;
+                if (output && output.trim()) {
+                    const lines = output.split('\n');
+                    let currentError: any = null;
+                    for (const line of lines) {
+                        const match = line.match(/^(.+?)\((\d+),(\d+)\): error TS(\d+): (.*)$/);
+                        if (match) {
+                            if (currentError) typecheckIssues.push(currentError);
+                            currentError = {
+                                message: match[5].trim(),
+                                filePath: match[1].trim(),
+                                line: parseInt(match[2]),
+                                column: parseInt(match[3]),
+                                severity: 'error' as const,
+                                source: 'typescript',
+                                ruleId: `TS${match[4]}`
+                            };
+                        } else if (currentError && line.trim() && !line.startsWith('src/') && !line.includes(': error TS')) {
+                            currentError.message += ' ' + line.trim();
+                        }
+                    }
+                    if (currentError) typecheckIssues.push(currentError);
+                }
+            } catch (error) {
+                this.logger.warn('Failed to parse TypeScript output', error);
+            }
+            results.typecheck.issues = typecheckIssues;
+            results.typecheck.summary = this.summarizeIssues(typecheckIssues);
+            results.typecheck.rawOutput = `STDOUT: ${tscResult.value.stdout}\nSTDERR: ${tscResult.value.stderr}`;
+        }
+
+        this.logger.info(`TypeScript analysis completed: ${lintIssues.length} lint issues, ${typecheckIssues.length} typecheck issues`);
+        return results;
+    }
+
+    private summarizeIssues(issues: CodeIssue[]) {
+        return {
+            errorCount: issues.filter(issue => issue.severity === 'error').length,
+            warningCount: issues.filter(issue => issue.severity === 'warning').length,
+            infoCount: issues.filter(issue => issue.severity === 'info').length
+        };
     }
 
     // Development utility method for fixing code issues
