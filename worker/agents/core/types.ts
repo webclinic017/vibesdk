@@ -6,8 +6,11 @@ import type { InferenceContext } from '../inferutils/config.types';
 import type { TemplateDetails } from '../../services/sandbox/sandboxTypes';
 import { TemplateSelection } from '../schemas';
 
+import { StackConfiguration } from 'worker/services/stacks/types';
+
 export interface AgentInitArgs {
     query: string;
+    stackId: StackConfiguration['id'];
     language?: string;
     frameworks?: string[];
     hostname: string;

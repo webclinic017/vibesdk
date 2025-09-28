@@ -265,9 +265,9 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         ..._args: unknown[]
     ): Promise<CodeGenState> {
 
-        const { query, language, frameworks, hostname, inferenceContext, templateInfo, sandboxSessionId } = initArgs;
+        const { query, stackId, language, frameworks, hostname, inferenceContext, templateInfo, sandboxSessionId } = initArgs;
         // Generate a blueprint
-        this.logger().info('Generating blueprint', { query, queryLength: query.length });
+        this.logger().info('Generating blueprint', { query, queryLength: query.length, stackId });
         this.logger().info(`Using language: ${language}, frameworks: ${frameworks ? frameworks.join(", ") : "none"}`);
         
         const blueprint = await generateBlueprint({
@@ -294,10 +294,7 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
             ...this.initialState,
             query,
             blueprint,
-            stack: {
-                language: templateInfo.templateDetails.language as 'typescript' | 'python',
-                framework: templateInfo.templateDetails.frameworks[0] as 'react' | 'fastapi',
-            },
+            stackId,
             templateDetails: templateInfo.templateDetails,
             sandboxInstanceId: undefined,
             generatedPhases: [],

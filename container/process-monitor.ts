@@ -165,6 +165,20 @@ class SimpleLogManager {
  */
 const GENERAL_ERROR_PATTERNS: readonly ErrorPattern[] = [
   // ==========================================
+  // PYTHON TRACEBACK (Highest Priority)
+  // ==========================================
+  {
+    id: 'python_traceback',
+    category: 'runtime',
+    severity: 'error',
+    priority: 98,
+    regex: /^Traceback \(most recent call last\):[\s\S]*?^\s*File "([^"]+)", line (\d+)[\s\S]*?^([a-zA-Z_]\w*Error:.*)/m,
+    description: 'Python traceback with file, line, and error message',
+    extractors: { file: 1, line: 2, message: 3 },
+    multiline: true
+  },
+
+  // ==========================================
   // STACK TRACE ERRORS (High Priority)
   // ==========================================
   {

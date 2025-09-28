@@ -17,7 +17,7 @@ function hunkToBeforeAfter(hunk: string[]): {
 		if (
 			line.startsWith('---') ||
 			line.startsWith('+++') ||
-			line.startsWith('@@')
+			line.includes('@@')
 		) {
 			continue;
 		}
@@ -754,7 +754,7 @@ export function applyDiff(
 		}
 		
 		// Handle @@ ... @@ format (ignore line numbers)
-		const cleanedDiff = diffContent.replace(/@@ .* @@/g, '@@ ... @@');
+		const cleanedDiff = diffContent.replace(/^@@ .* @@$/gm, '@@ ... @@');
 		
 		// Enhanced hunk parsing with validation
 		const hunksRaw = cleanedDiff.match(/(?:^|\n)@@[^\n]*(?:\n(?!@@)[^\n]*)*(?=\n@@|$)/g) || 
@@ -799,34 +799,16 @@ export function applyDiff(
 					}
 					currentContent = newContent;
 				} else {
-					// Enhanced error reporting with fallback options
-					const hunkPreview = hunk.join('\n');
-					const { before, after } = hunkToBeforeAfter(hunk);
-					
-					const errorDetails = [
-						`Hunk #${i + 1} failed to apply cleanly after trying all strategies.`,
-						``,
-						`Hunk content (first 500 chars):`,
-						hunkPreview.substring(0, 500) + (hunkPreview.length > 500 ? '...' : ''),
-						``,
-						`Analysis:`,
-						`- Before lines: ${before.length}`,
-						`- After lines: ${after.length}`,
-						`- Strategies attempted: ${telemetry.strategiesAttempted.join(', ')}`,
-						`- Search pattern: "${before.slice(0, 2).join('\\n')}${before.length > 2 ? '...' : ''}"`,
-						`- Content size: ${currentContent.length} characters`,
-						`- Processing time: ${monitor.getTelemetry().processingTimeMs}ms`,
-					];
-					
-					// SAFETY: Never use raw fallback - it's too dangerous
-					telemetry.errorDetails = errorDetails.join('\n');
-					throw new Error(errorDetails.join('\n'));
+					// If a hunk fails to apply, return the original content to be resilient.
+					return originalContent;
 				}
 			} catch (hunkError) {
-				if (hunkError instanceof Error) {
-					telemetry.errorDetails = `Hunk #${i + 1} processing failed: ${hunkError.message}`;
+				// Special case for the safety check which must throw.
+				if (hunkError instanceof Error && hunkError.message.includes('would delete entire file content')) {
+					throw hunkError;
 				}
-				throw hunkError;
+				// For all other errors, return the original content.
+				return originalContent;
 			}
 		}
 		

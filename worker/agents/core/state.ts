@@ -2,6 +2,7 @@ import type { Blueprint, ClientReportedErrorType, PhaseConceptType ,
     FileOutputType,
 } from '../schemas';
 import type { TemplateDetails } from '../../services/sandbox/sandboxTypes';
+import type { StackConfiguration } from '../../services/stacks/types';
 // import type { ScreenshotData } from './types';
 import type { ConversationMessage } from '../inferutils/common';
 import type { InferenceContext } from '../inferutils/config.types';
@@ -29,10 +30,7 @@ export enum CurrentDevState {
 export const MAX_PHASES = 10;
 
 export interface CodeGenState {
-    stack: {
-        language: 'typescript' | 'python';
-        framework: 'react' | 'fastapi';
-    };
+    stackId: StackConfiguration['id'];
     blueprint: Blueprint;
     query: string;
     generatedFilesMap: Record<string, FileState >;
