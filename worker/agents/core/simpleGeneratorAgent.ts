@@ -496,26 +496,35 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
             // State machine loop - continues until IDLE state
             while (currentDevState !== CurrentDevState.IDLE) {
                 this.logger().info(`[generateAllFiles] Executing state: ${currentDevState}`);
-                switch (currentDevState) {
-                    case CurrentDevState.PHASE_GENERATING:
-                        executionResults = await this.executePhaseGeneration();
-                        currentDevState = executionResults.currentDevState;
-                        phaseConcept = executionResults.result;
-                        staticAnalysisCache = executionResults.staticAnalysis;
-                        break;
-                    case CurrentDevState.PHASE_IMPLEMENTING:
-                        executionResults = await this.executePhaseImplementation(phaseConcept, staticAnalysisCache);
-                        currentDevState = executionResults.currentDevState;
-                        staticAnalysisCache = executionResults.staticAnalysis;
-                        break;
-                    case CurrentDevState.REVIEWING:
-                        currentDevState = await this.executeReviewCycle();
-                        break;
-                    case CurrentDevState.FINALIZING:
-                        currentDevState = await this.executeFinalizing();
-                        break;
-                    default:
-                        break;
+                try {
+                    switch (currentDevState) {
+                        case CurrentDevState.PHASE_GENERATING:
+                            executionResults = await this.executePhaseGeneration();
+                            currentDevState = executionResults.currentDevState;
+                            phaseConcept = executionResults.result;
+                            staticAnalysisCache = executionResults.staticAnalysis;
+                            break;
+                        case CurrentDevState.PHASE_IMPLEMENTING:
+                            executionResults = await this.executePhaseImplementation(phaseConcept, staticAnalysisCache);
+                            currentDevState = executionResults.currentDevState;
+                            staticAnalysisCache = executionResults.staticAnalysis;
+                            break;
+                        case CurrentDevState.REVIEWING:
+                            currentDevState = await this.executeReviewCycle();
+                            break;
+                        case CurrentDevState.FINALIZING:
+                            currentDevState = await this.executeFinalizing();
+                            break;
+                        default:
+                            break;
+                    }
+                } catch (innerError) {
+                    this.logger().error("Error during state execution, attempting recovery", innerError);
+                    this.broadcast(WebSocketMessageResponses.AGENT_RECOVERY_ATTEMPT, {
+                        message: "An error occurred, attempting to recover and fix the issue.",
+                        error: innerError instanceof Error ? innerError.message : String(innerError)
+                    });
+                    currentDevState = CurrentDevState.REVIEWING;
                 }
             }
 

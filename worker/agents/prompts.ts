@@ -6,6 +6,58 @@ import { IssueReport } from "./domain/values/IssueReport";
 import { SCOFFormat } from "./streaming-formats/scof";
 import { MAX_PHASES } from "./core/state";
 
+export const FASTAPI_GUIDELINES = `
+<FASTAPI_GUIDELINES>
+You MUST use FastAPI for the backend, with SQLModel for the database ORM. Here are some guidelines, documentation, and best practices for using FastAPI and SQLModel effectively:
+
+# FastAPI Guidelines
+
+## Project Structure
+- Organize your project into a logical structure. A good starting point is:
+  - \`main.py\`: The main application entry point.
+  - \`database.py\`: Database connection and session management.
+  - \`models.py\`: SQLModel data models.
+  - \`crud.py\`: Reusable functions to Create, Read, Update, and Delete data from the database.
+  - \`schemas.py\`: Pydantic schemas for request and response validation.
+  - \`api/\`: A directory for your API routers.
+    - \`api/v1/\`: A subdirectory for version 1 of your API.
+      - \`api/v1/endpoints/\`: A subdirectory for your API endpoints.
+
+## API Design
+- Use APIRouter to modularize your endpoints. This keeps your main.py clean and organized.
+- Use path and query parameters for filtering and identifying resources.
+- Use Pydantic models (schemas) for request and response validation. This ensures data integrity and provides automatic documentation.
+- Use dependency injection for managing database sessions and other dependencies.
+
+## Data Modeling with SQLModel
+- Define your data models in \`models.py\` using SQLModel.
+- Use \`Field\` to define your table columns, including data types, default values, and constraints.
+- Use \`Relationship\` to define relationships between your models.
+- Use \`SQLModel.metadata.create_all()\` to create your database tables.
+
+## CRUD Operations
+- Create reusable CRUD functions in \`crud.py\`.
+- These functions should take a database session and the relevant data as arguments.
+- This separates your business logic from your API endpoints.
+
+## Error Handling
+- Use FastAPI's \`HTTPException\` to handle errors.
+- Return appropriate HTTP status codes and error messages.
+- Use a custom exception handler to handle common errors across your application.
+
+## Authentication
+- Use FastAPI's dependency injection system to implement authentication.
+- Create a \`get_current_user\` dependency that verifies the user's credentials and returns the user object.
+- Use this dependency in your protected endpoints.
+
+## Testing
+- Write unit and integration tests for your application.
+- Use FastAPI's \`TestClient\` to test your API endpoints.
+- Use a separate database for testing to avoid conflicts with your development database.
+
+</FASTAPI_GUIDELINES>
+`;
+
 export const PROMPT_UTILS = {
     /**
      * Replace template variables in a prompt string
@@ -582,7 +634,7 @@ COMMON_PITFALLS: `<AVOID COMMON PITFALLS>
     • **Provide explicit commands to install necessary dependencies ONLY.** DO NOT SUGGEST MANUAL CHANGES. These commands execute directly.
     • **Dependency Versioning:**
         - **Use specific, known-good major versions.** Avoid relying solely on 'latest' (unless you are unsure) which can introduce unexpected breaking changes.
-        - Always suggest a known recent compatible stable major version. If unsure which version might be available, don't specify any version.
+        - Always suggest a known recent compatible stable major version. If a version is not specified, the latest version will be used.
         - Example: \`npm install react@18 react-dom@18\`
         - List commands to add dependencies separately, one command per dependency for clarity.
     • **Format:** Provide ONLY the raw command(s) without comments, explanations, or step numbers, in the form of a list
@@ -739,7 +791,7 @@ bun add @geist-ui/react@1
         - **sm (640px):** Tablet portrait adjustments
         - **md (768px):** Tablet landscape and small desktop
         - **lg (1024px):** Desktop layouts
-        - **xl (1280px):** Large desktop enhancements
+        - **xl (1280px):** Ultra-wide optimizations
         - **2xl (1536px):** Ultra-wide optimizations
     
     ### 🌟 VISUAL POLISH CHECKLIST
@@ -908,6 +960,13 @@ FRONTEND_FIRST_CODING: `<PHASES GENERATION STRATEGY>
     The core principle is to establish a visually complete and polished frontend presentation early on with core functionalities implemented, before layering in more advanced functionality and fleshing out the backend.
     The goal is to build and demo a functional and beautiful product as fast and as early as possible.
     **Each phase should be self-contained, deployable and demoable**
+    **This is the workflow you must follow to complete your task:**
+    1. Think: Think deeply about the problem and how to solve it.
+    2. Plan: Plan out a step-by-step approach to solve the problem.
+    3. Execute: Write the a complete frontend and backend to solve the problem.
+    4. Deploy: Deploy the code.
+    5. Fix errors: Fix any errors that occur when you deploy your changes and redeploy until the app is successfully deployed.
+    6. Do not add any features that are not part of the original prompt.
 
     ${STRATEGIES_UTILS.INITIAL_PHASE_GUIDELINES}
 
@@ -956,6 +1015,10 @@ export function generalSystemPromptBuilder(
     }
     if (params.templateMetaInfo) {
         variables.usecaseSpecificInstructions = getUsecaseSpecificInstructions(params.templateMetaInfo);
+    }
+
+    if (params.language === 'python') {
+        prompt += FASTAPI_GUIDELINES;
     }
 
     const formattedPrompt = PROMPT_UTILS.replaceTemplateVariables(prompt, variables);
